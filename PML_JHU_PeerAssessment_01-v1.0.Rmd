@@ -4,7 +4,8 @@ output:
     theme: spacelab  
     highlight: tango
 ---
-#Predicting Exercises Quality from Accelerometer Data with Machine Learning#
+
+<center> <h1>Predicting Exercises Quality from Accelerometer Data with Machine Learning</h1> </center>
 Author: Jovan Sardinha  
 Email: jovan.sardinha@gmail.com  
 Date: Friday, July 24, 2014  
@@ -27,7 +28,7 @@ library(xtable)
 
 ## Executive Summary 
 
-This report detials the building of machine learning models which predict the *classe* (quality of extercise) classification from data provided by accelerometer. To do this 5 classification models were initially selected and then the best of these 5 was fine tuned to improve the overall accuracy. The goal was to predict 5 exercise from 6 different participants. 
+The report details the building of machine learning models which predicts the *classe* (quality of exercise) variable from data provided by accelerometer. To do this, 5 classification models were initially selected and the best, in terms of accuracy, was fine tuned to improve the overall prediction capability. The goal was to predict the *classe* variable for 5 exercise performed by 6 different participants. 
 
 The performance specifications of the final model are outlined below:
 ```{r FinalOverallStats0,results='asis', echo=FALSE, fig.align='center'}
@@ -47,27 +48,27 @@ print(xOverallStats, type = "html", floating = FALSE, booktabs=TRUE, include.row
 
 <hr>
 ## 1.0 - Background  
-Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.   
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behaviour, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.   
 
 ## 2.0 - Purpose and Scope  
-Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants were utlized. These participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways with machine learning models. More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har>.
+Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants were utilized. These participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways with machine learning models. More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har>.
 
 ## 3.0 - Data Preparation
-The following section detials the procedure required to prepare the data for analysis. This includes getting the data, cleaning it and then splittig it. 
+The following section details the procedure required to prepare the data for analysis. This includes getting the data, cleaning it and then splitting it. 
 
 ### 3.1 - Getting that Data
 The data sets used here include:  
-1. Traning data set:  
+1. Training data set:  
 - location: <https://d396quszas40orc.cloudfront.net/predmachlearn/pml-training.csv>    
-- dimentions: 19622 observations of 160 variables  
+- dimensions: 19622 observations of 160 variables  
 - data extracted on:  Monday, July  21, 2014 @ 12:41 AM  
 
 2. Testing data set: 
 - location: <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>  
-- dimentions: 20 observations of 160 variables  
+- dimensions: 20 observations of 160 variables  
 - data extracted on:  Monday, July  21, 2014 @ 12:41 AM  
 
-Since the testing data set only consists of 0.10% of the total available data, the training data set will be split into a cross validation data set to prevent overfitting and get an out of sample erorr rate (for futher detials on the cross-validation (CV) data set, please see *Data Splitting: Preparing CV Data Set*) 
+Since the testing data set only consists of 0.10% of the total available data, the training data set will be split into a cross validation data set to prevent over-fitting and get an out of sample error rate (for further details on the cross-validation (CV) data set, please see *section 3.3*) 
 
 ```{r dataDownload, cache=TRUE, warning=FALSE, echo=FALSE}
 # Downloading Training Data
@@ -92,11 +93,11 @@ testData <- read.csv(testFile)
 ### 3.2 - Cleaning the Data
 
 The original data sets included two sets of extraneous variables namely:  
-1. *Tracking specific varaibles*: Variables that contain record specific information (loggin, indexing information) that would be useless for model building.  
-2 . *Zero varience variables*: Varaibles that have zero-varience (or near zero varience) which is meaningless to the machine learning models.   
-3. *Aggregate specific varaibles*: Calculations that are done on an aggregate of records. Hence, these varaibles contain mainly NA's (~90%).   
+1. *Tracking specific variables*: Variables that contain record specific information (login, test number, etc...) that would be useless for model building.  
+2 . *Zero varience variables*: Variables that have zero-variance (or near zero variance) which is meaningless to the machine learning models.   
+3. *Aggregate specific variables*: Calculations that are done on an aggregate of records. Hence, these variables contain mainly NA's (~90%).   
 
-The following code detials how the above two types of extronious variables are identified and removed from the data sets.
+The following code details how the above two types of extronious variables are identified and removed from the data sets.
 ```{r cleaningData, cache=TRUE}
 # Identifying tracking specific variables
 toMatch <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window", "num_window")
@@ -106,7 +107,7 @@ removeColumns <- grep(paste(toMatch,collapse="|"), colnames(trainData))
 nzv <- nearZeroVar(trainData, saveMetrics = TRUE)
 removeColumns <- c(removeColumns,which(nzv$nzv == TRUE))
 
-# Identifying aggregate specific varialbles
+# Identifying aggregate specific variables
 AggregateVals <- names(trainData[,colSums(is.na(trainData), na.rm = FALSE) > 0.95*nrow(trainData)])
 NAColumns <- grep(paste(AggregateVals,collapse="|"), colnames(trainData))
 removeColumns <- c(removeColumns,NAColumns)
@@ -122,9 +123,9 @@ testDataTidy <- testData[,-removeColumns]
 
 ### 3.3 - Data Splitting: Preparing Cross-Validation Data Set
 
-As stated before, since the training data set is such a huge proportaion of the avaiable data, a data partition of  p=0.3 was used on the training data set to split it into a traning and a cross-validation set. This split would provide 5,889 observation for traning and 13733 for cross-validation. Hence, leaving us with about 30% of avaiable data for model training and 70% for model testing (more specifically, 69.92% for cross-validation and 0.010% for testing).
+Since the training data set is such a huge proportion of the available data, a data partition of  *p=0.3* was used on the training data set to split it into a training and a cross-validation set. This split would provide 5,889 observation for training and 13733 for cross-validation. This would leave us with ~30% of available data for model training and 70% for model testing (more specifically, 69.92% for cross-validation and 0.010% for testing).
 
-The code below detials how the cross-validation data set was created.
+The code below details how the cross-validation data set was created.
 ```{r CVSplit}
 set.seed(112)
 inTest <- createDataPartition(y=trainDataTidy$classe,
@@ -140,7 +141,7 @@ classeCol <- grep("classe", colnames(training))
 
 # 4.0 - Exploratory Data Analysis
 
-Analysis was done on the cleaned training data set, to detect outliers and certain anomalies that might effect certain models. 
+Analysis was done on the cleaned training data set, to detect outlines and certain anomalies that might effect certain models. 
 
 A hierarchical cluster analysis was conducted to analyze the relationship between variables:
 ```{r EDA, echo=FALSE, fig.cap= "hclust of traing data variables", fig.align='center'}
@@ -149,14 +150,14 @@ trainCorr <- round(trainCorr, digits=2)
 corrplot(trainCorr, method = "square", order="hclust", tl.cex=0.55, tl.srt=90)
 ```
 
-*Conlusion*: The great a amount of coorelation among variables suggest that techniques such as PCA can be used to characterize the magnitude of the problem. PCA would also help reduce computation compleity and increase numerical stabilty.
+*Conlusion*: The great a amount of correlation among variables suggest that techniques such as PCA can be used to characterize the magnitude of the problem. PCA would also help reduce computation complexity and increase numerical stability.
 
 # 5.0 - Model Building
 
-To predict the *classe* variable, three classes of classification models were built with different pre-processing options using the **Caret** package. Given the nature of the prediciton varaiable, regression models were ruled out of this analysis.  
+To predict the *classe* variable, three classes of classification models were built with different pre-processing options using the **Caret** package. Given the nature of the prediction variable, regression models were ruled out of this analysis.  
 
 ## 5.1 - Model Training
-The table below detials the different types of models that were trained with the tranind data set.
+The table below details the different types of models that were trained with the training data set.
 
 ```{r, results='asis', echo=FALSE, fig.align='center'}
 ModelType <- c("Random Forest","Stochastic Gradient Boosting (gbm)", "Support Vector Machines (svmRadial)", "Random Forest", "Stochastic Gradient Boosting (gbm)")
@@ -168,10 +169,10 @@ PreProcessing <- c("None","None", "Normalization (center, scale)", "PCA", "PCA")
 ModelSelection <- data.frame(ModelType, ModelClass, PreProcessing)
 colnames( ModelSelection ) <- c( "Model Type", "Model Class", "Pre-Processing" ) 
 x1 <- xtable(ModelSelection)
-print(x1, type = "html")
+print(x1, type = "html", floating = FALSE, booktabs=TRUE, include.rownames=FALSE)
 ```
   
-The subsequent code blocks contain code and sepcific parameters used when traning models. Furthermore, the doParallel library was utilized to take full advantage of multi-core machine architecture and improve run time. 
+The subsequent code blocks contain code and specific parameters used when training models. Furthermore, the doParallel library was utilized to take full advantage of multi-core machine architecture and improve run time. 
 
 ** Model 1:Random Forest Model**
 ```{r model_rf, cache=TRUE, warning=FALSE, message=FALSE}
@@ -227,7 +228,7 @@ modelFit_gbm_PCA <- train(classe ~ ., method="gbm", preProcess = "pca", data=tra
 ```
 
 ### 5.2 - Initial Model Evaluation
-The trained models were evaluated against the cross-validation data sets. The results below indicate the out-of-sample metrics for all 5 models trained above. Further detials on model evaluation on all five models can be found in *Appendix A: Initial Model Evaluation Detials*
+The trained models were evaluated against the cross-validation data sets. The results below indicate the out-of-sample metrics for all 5 models trained above. Further details on model evaluation on all five models can be found in *Appendix A: Initial Model Evaluation Detials*
 
 
 ```{r OverallStats,results='asis', echo=FALSE, fig.align='center'}
@@ -256,9 +257,9 @@ print(xOverallStats, type = "html", floating = FALSE, booktabs=TRUE, include.row
 ### 6.1 - Final Model Training
 Given that *accuracy* was used as a metric to evaluate all the trained models, **Model 1:Random Forest Model** had the best performance. Hence, this model was further tuned to improve its accuracy.
 
-In order to improve overall accuracy while prevent overfitting, a k-fold cross validation (where k=10) was done while re-training the model. 
+In order to improve overall accuracy while prevent over-fitting, a k-fold cross validation (where k=10) was done while re-training the model. 
 
-The code below detials the process.
+The code below details the process.
 ```{r model_rf_CV, cache=TRUE, warning=FALSE,message=FALSE}
 # Enabeling multi-core processing
 cl <- makeCluster(detectCores())
@@ -298,15 +299,15 @@ The figure below shows the scaled variable importance of the final model.
 print(plot(varImp(modelFit_rf_CV, scale = TRUE)))
 ```
 
-Hence, we see that the *roll_belt* is vital for model rediction and the subsequent 19 variables are major contirbuters to model accuracy. 
+Hence, we see that the *roll_belt* is vital for model reduction and the subsequent 19 variables are major contributors to model accuracy. 
 
-final model specifications:
- - mtry: 27
- - In-Sample Accuracy: 0.979
- - Kappa: 0.973
- - AccuracySD: 0.00613
- - KappaSD: 0.00776
- - Performance Metric: Accuracy
+final model specifications:  
+- mtry: 27  
+- In-Sample Accuracy: 0.979 
+- Kappa: 0.973  
+- AccuracySD: 0.00613   
+- KappaSD: 0.00776  
+- Performance Metric: Accuracy  
 
 ## 7.0 - Predicting the Results
 ### 7.1 - Predicting the Test Set
@@ -318,7 +319,7 @@ finalPredict <- cbind(predictedProb, predictedClass)
 finalPredict <- data.frame(finalPredict)
 colnames( finalPredict ) <- c( "Prob(A)", "Prob(B)", "Prob(C)", "Prob(D)", "Prob(E)", "Final Prediction") 
 xPredict <- xtable(finalPredict)
-print(xPredict, type = "html")
+print(xPredict, type = "html", floating = FALSE, booktabs=TRUE, include.rownames=FALSE)
 ```
 
 ```{r savingModels, echo=FALSE, cache=TRUE}
