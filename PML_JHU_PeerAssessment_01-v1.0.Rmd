@@ -23,26 +23,39 @@ library(survival)
 library(splines)
 library(xtable)
 ```
-
 <hr>
 
 ## Executive Summary 
 
-This is the jargon that will be added for executive summary:
+This report detials the building of machine learning models which predict the *classe* (quality of extercise) classification from data provided by accelerometer. To do this 5 classification models were initially selected and then the best of these 5 was fine tuned to improve the overall accuracy. The goal was to predict 5 exercise from 6 different participants. 
 
+The performance specifications of the final model are outlined below:
+```{r FinalOverallStats0,results='asis', echo=FALSE, fig.align='center'}
+ModelName <- c("Final Model :Random Forest Model with K-Fold Cross Validation")
+Accuracy <- c("0.982")
+CI <- c("(0.98, 0.984)")
+NIR <- c("0.287")
+PVal <- c("<2e-16 (Significant)")
+Kappa <- c("0.978")
+Mcnemar <- c("N/A")
 
+OverallStats <- data.frame(ModelName, Accuracy, CI, NIR, PVal, Kappa,  Mcnemar)
+colnames( OverallStats ) <- c("Model Name", "Out of Sample Accuracy", "95% Confidence Interval for Accuracy", "No Information Rate (NIR)", "P-Value [Accuracy > NIR]", "Kappa", "Mcnemar's Test P-Value" ) 
+xOverallStats <- xtable(OverallStats)
+print(xOverallStats, type = "html", floating = FALSE, booktabs=TRUE, include.rownames=FALSE)
+```
 
 <hr>
-## Background  
+## 1.0 - Background  
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.   
 
-## Purpose and Scope  
+## 2.0 - Purpose and Scope  
 Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants were utlized. These participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways with machine learning models. More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har>.
 
-## Data Preparation
+## 3.0 - Data Preparation
 The following section detials the procedure required to prepare the data for analysis. This includes getting the data, cleaning it and then splittig it. 
 
-### Getting that Data
+### 3.1 - Getting that Data
 The data sets used here include:  
 1. Traning data set:  
 - location: <https://d396quszas40orc.cloudfront.net/predmachlearn/pml-training.csv>    
@@ -76,7 +89,7 @@ trainData <- read.csv(trainFile)
 testData <- read.csv(testFile)
 ```
 
-### Cleaning the Data
+### 3.2 - Cleaning the Data
 
 The original data sets included two sets of extraneous variables namely:  
 1. *Tracking specific varaibles*: Variables that contain record specific information (loggin, indexing information) that would be useless for model building.  
@@ -107,7 +120,7 @@ trainDataTidy <- trainData[,-removeColumns]
 testDataTidy <- testData[,-removeColumns]
 ```
 
-### Data Splitting: Preparing Cross-Validation Data Set
+### 3.3 - Data Splitting: Preparing Cross-Validation Data Set
 
 As stated before, since the training data set is such a huge proportaion of the avaiable data, a data partition of  p=0.3 was used on the training data set to split it into a traning and a cross-validation set. This split would provide 5,889 observation for traning and 13733 for cross-validation. Hence, leaving us with about 30% of avaiable data for model training and 70% for model testing (more specifically, 69.92% for cross-validation and 0.010% for testing).
 
@@ -125,7 +138,7 @@ crossVal <- trainDataTidy[-inTest,]
 classeCol <- grep("classe", colnames(training))
 ```
 
-# Exploratory Data Analysis
+# 4.0 - Exploratory Data Analysis
 
 Analysis was done on the cleaned training data set, to detect outliers and certain anomalies that might effect certain models. 
 
@@ -138,11 +151,11 @@ corrplot(trainCorr, method = "square", order="hclust", tl.cex=0.55, tl.srt=90)
 
 *Conlusion*: The great a amount of coorelation among variables suggest that techniques such as PCA can be used to characterize the magnitude of the problem. PCA would also help reduce computation compleity and increase numerical stabilty.
 
-# Model Building
+# 5.0 - Model Building
 
 To predict the *classe* variable, three classes of classification models were built with different pre-processing options using the **Caret** package. Given the nature of the prediciton varaiable, regression models were ruled out of this analysis.  
 
-## Model Training
+## 5.1 - Model Training
 The table below detials the different types of models that were trained with the tranind data set.
 
 ```{r, results='asis', echo=FALSE, fig.align='center'}
@@ -213,70 +226,39 @@ set.seed(112)
 modelFit_gbm_PCA <- train(classe ~ ., method="gbm", preProcess = "pca", data=training, verbose=FALSE)
 ```
 
-### Initial Model Evaluation
+### 5.2 - Initial Model Evaluation
 The trained models were evaluated against the cross-validation data sets. The results below indicate the out-of-sample metrics for all 5 models trained above. Further detials on model evaluation on all five models can be found in *Appendix A: Initial Model Evaluation Detials*
 
-```{r}
-## Model 1:Random Forest Model**
-## Overall Statistics
-##                                        
-##                Accuracy : 0.982        
-##                  95% CI : (0.98, 0.984)
-##     No Information Rate : 0.287        
-##     P-Value [Acc > NIR] : <2e-16       
-##                                        
-##                   Kappa : 0.978        
-##  Mcnemar's Test P-Value : NA           
 
+```{r OverallStats,results='asis', echo=FALSE, fig.align='center'}
+ModelName <- c("Model 1:Random Forest Model", "Model 2:Stochastic Gradient Boosting (gbm)", "Model 3:Support Vector Machines (svmRadial)", "Model 4:Random Forest with PCA", "Model 5:Stochastic Gradient Boosting (gbm) with PCA")
 
-## Model 2:Stochastic Gradient Boosting (gbm)**
-## Overall Statistics
-##                                         
-##                Accuracy : 0.953         
-##                  95% CI : (0.949, 0.956)
-##     No Information Rate : 0.29          
-##     P-Value [Acc > NIR] : <2e-16        
-##                                         
-##                   Kappa : 0.94          
-##  Mcnemar's Test P-Value : <2e-16        
+Accuracy <- c("0.982", "0.953", "0.885", "0.939", "0.8")
 
+CI <- c("(0.98, 0.984)","(0.949, 0.956)", "(0.88, 0.891)", "(0.935, 0.943)", "(0.793, 0.806)")
 
-## Model 3:Support Vector Machines (svmRadial)**
-##                Accuracy : 0.885        
-##                  95% CI : (0.88, 0.891)
-##     No Information Rate : 0.302        
-##     P-Value [Acc > NIR] : <2e-16       
-##                                        
-##                   Kappa : 0.855        
-##  Mcnemar's Test P-Value : <2e-16       
+NIR <- c("0.287", "0.29", "0.302", "0.289", "0.293")
 
+PVal <- c("<2e-16 (Significant)", "<2e-16 (Significant)", "<2e-16 (Significant)", "<2e-16 (Significant)", "<2e-16 (Significant)")
 
-## Model 4:Random Forest with PCA**
-## Overall Statistics
-##                                         
-##                Accuracy : 0.939         
-##                  95% CI : (0.935, 0.943)
-##     No Information Rate : 0.289         
-##     P-Value [Acc > NIR] : <2e-16        
+Kappa <- c("0.978", "0.94", "0.855", "0.923", "0.746")
 
+Mcnemar <- c("N/A", "<2e-16 (Significant)", "<2e-16 (Significant)","<2e-16 (Significant)", "<2e-16 (Significant)")
 
-## Model 5:Stochastic Gradient Boosting (gbm) with PCA**
-## Overall Statistics
-##                                         
-##                Accuracy : 0.8           
-##                  95% CI : (0.793, 0.806)
-##     No Information Rate : 0.293         
-##     P-Value [Acc > NIR] : <2e-16        
-##                                         
-##                   Kappa : 0.746         
-##  Mcnemar's Test P-Value : <2e-16   
+OverallStats <- data.frame(ModelName, Accuracy, CI, NIR, PVal, Kappa,  Mcnemar)
+colnames( OverallStats ) <- c("Model Name", "Out of Sample Accuracy", "95% Confidence Interval for Accuracy", "No Information Rate (NIR)", "P-Value [Accuracy > NIR]", "Kappa", "Mcnemar's Test P-Value" ) 
+xOverallStats <- xtable(OverallStats)
+print(xOverallStats, type = "html", floating = FALSE, booktabs=TRUE, include.rownames=FALSE)
 ```
 
-## Final Model Tuning
+## 6.0 - Final Model Tuning
 
-### Final Model Evaluation
-Given that *accuracy* was used as a metric to evaluate all the trained models, **Model 1:Random Forest Model** had the best performance. Hence, this model was further tuned to improve its accuracy.  
+### 6.1 - Final Model Training
+Given that *accuracy* was used as a metric to evaluate all the trained models, **Model 1:Random Forest Model** had the best performance. Hence, this model was further tuned to improve its accuracy.
 
+In order to improve overall accuracy while prevent overfitting, a k-fold cross validation (where k=10) was done while re-training the model. 
+
+The code below detials the process.
 ```{r model_rf_CV, cache=TRUE, warning=FALSE,message=FALSE}
 # Enabeling multi-core processing
 cl <- makeCluster(detectCores())
@@ -291,33 +273,43 @@ fitControl <- trainControl(## 10-fold CV
 modelFit_rf_CV <- train(classe ~ ., data=training, method="rf", trControl = fitControl, prox=TRUE)
 ```
 
-### Final Model Evaluation
-```{r}
-## Overall Statistics
-##                                        
-##                Accuracy : 0.982        
-##                  95% CI : (0.98, 0.984)
-##     No Information Rate : 0.287        
-##     P-Value [Acc > NIR] : <2e-16       
-##                                        
-##                   Kappa : 0.978        
-##  Mcnemar's Test P-Value : NA           
+### 6.2 - Final Model Evaluation
+
+```{r FinalOverallStats,results='asis', echo=FALSE, fig.align='center'}
+ModelName <- c("Final Model :Random Forest Model with K-Fold Cross Validation")
+Accuracy <- c("0.982")
+CI <- c("(0.98, 0.984)")
+NIR <- c("0.287")
+PVal <- c("<2e-16 (Significant)")
+Kappa <- c("0.978")
+Mcnemar <- c("N/A")
+
+OverallStats <- data.frame(ModelName, Accuracy, CI, NIR, PVal, Kappa,  Mcnemar)
+colnames( OverallStats ) <- c("Model Name", "Out of Sample Accuracy", "95% Confidence Interval for Accuracy", "No Information Rate (NIR)", "P-Value [Accuracy > NIR]", "Kappa", "Mcnemar's Test P-Value" ) 
+xOverallStats <- xtable(OverallStats)
+print(xOverallStats, type = "html", floating = FALSE, booktabs=TRUE, include.rownames=FALSE)
 ```
 
+As seen above, after the model tuning, the performance of the model has little-to-no improvement. Hence, if processing power was a limited resource, it is recommended that cross validation is not required in this case.
+
+The figure below shows the scaled variable importance of the final model. 
 ```{r, fig.align='center', fig.height= 9, echo=FALSE}
 #varImp_rf <- varImp(modelFit_rf_CV)
 print(plot(varImp(modelFit_rf_CV, scale = TRUE)))
 ```
 
+Hence, we see that the *roll_belt* is vital for model rediction and the subsequent 19 variables are major contirbuters to model accuracy. 
+
 final model specifications:
-```{r}
-print(modelFit_rf_CV$modelInfo)
-```
+ - mtry: 27
+ - In-Sample Accuracy: 0.979
+ - Kappa: 0.973
+ - AccuracySD: 0.00613
+ - KappaSD: 0.00776
+ - Performance Metric: Accuracy
 
-
-
-## Predicting the Results
-### Predicting the Test Set
+## 7.0 - Predicting the Results
+### 7.1 - Predicting the Test Set
 
 ```{r predictTest rf, cache=TRUE, echo=FALSE, results='asis'}
 predictedClass <- predict(modelFit_rf_CV, newdata=testDataTidy, type = "raw")
@@ -328,9 +320,6 @@ colnames( finalPredict ) <- c( "Prob(A)", "Prob(B)", "Prob(C)", "Prob(D)", "Prob
 xPredict <- xtable(finalPredict)
 print(xPredict, type = "html")
 ```
-
-
-
 
 ```{r savingModels, echo=FALSE, cache=TRUE}
 #save(modelFit_nb,file = "./models/modelFit_nb.RData")
@@ -344,7 +333,7 @@ save(modelFit_gbm_PCA,file = "./models/modelFit_gbm_PCA.RData")
 save(modelFit_rf_CV,file = "./models/modelFit_rf_CV.RData")
 ```
 
-
+<hr>
 ## Appendix
 
 ### Appendix A: Initial Model Evaluation Detials
