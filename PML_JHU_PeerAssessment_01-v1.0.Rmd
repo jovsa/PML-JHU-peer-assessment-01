@@ -1,0 +1,376 @@
+---
+output:
+  html_document: 
+    theme: spacelab  
+    highlight: tango
+---
+#Predicting Exercises Quality from Accelerometer Data with Machine Learning#
+Author: Jovan Sardinha  
+Email: jovan.sardinha@gmail.com  
+Date: Friday, July 24, 2014  
+
+```{r libraries, echo = FALSE, message=FALSE}
+library(RCurl)
+library(knitr)
+library(caret)
+library(ggplot2)
+library(corrplot)
+library(kernlab)
+library(randomForest)
+library(doParallel)
+library(gbm)
+library(survival)
+library(splines)
+library(xtable)
+```
+
+<hr>
+
+## Executive Summary 
+
+This is the jargon that will be added for executive summary:
+
+
+
+<hr>
+## Background  
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.   
+
+## Purpose and Scope  
+Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants were utlized. These participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways with machine learning models. More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har>.
+
+## Data Preparation
+The following section detials the procedure required to prepare the data for analysis. This includes getting the data, cleaning it and then splittig it. 
+
+### Getting that Data
+The data sets used here include:  
+1. Traning data set:  
+- location: <https://d396quszas40orc.cloudfront.net/predmachlearn/pml-training.csv>    
+- dimentions: 19622 observations of 160 variables  
+- data extracted on:  Monday, July  21, 2014 @ 12:41 AM  
+
+2. Testing data set: 
+- location: <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>  
+- dimentions: 20 observations of 160 variables  
+- data extracted on:  Monday, July  21, 2014 @ 12:41 AM  
+
+Since the testing data set only consists of 0.10% of the total available data, the training data set will be split into a cross validation data set to prevent overfitting and get an out of sample erorr rate (for futher detials on the cross-validation (CV) data set, please see *Data Splitting: Preparing CV Data Set*) 
+
+```{r dataDownload, cache=TRUE, warning=FALSE, echo=FALSE}
+# Downloading Training Data
+if(!file.exists("./data")){dir.create("./data")}
+trainDataURL <- "https://d396quszas40orc.cloudfront.net/predmachlearn/pml-training.csv"
+trainFile <- paste("./data/", basename(trainDataURL), sep = "")
+download.file(trainDataURL, trainFile, method = "curl")
+
+# Downloading Testing Data
+if(!file.exists("./data")){dir.create("./data")}
+testDataURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+testFile <- paste("./data/", basename(testDataURL), sep = "")
+download.file(testDataURL, testFile, method = "curl")
+```
+
+```{r dataImport}
+# Importing data into memory
+trainData <- read.csv(trainFile)
+testData <- read.csv(testFile)
+```
+
+### Cleaning the Data
+
+The original data sets included two sets of extraneous variables namely:  
+1. *Tracking specific varaibles*: Variables that contain record specific information (loggin, indexing information) that would be useless for model building.  
+2 . *Zero varience variables*: Varaibles that have zero-varience (or near zero varience) which is meaningless to the machine learning models.   
+3. *Aggregate specific varaibles*: Calculations that are done on an aggregate of records. Hence, these varaibles contain mainly NA's (~90%).   
+
+The following code detials how the above two types of extronious variables are identified and removed from the data sets.
+```{r cleaningData, cache=TRUE}
+# Identifying tracking specific variables
+toMatch <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window", "num_window")
+removeColumns <- grep(paste(toMatch,collapse="|"), colnames(trainData))
+
+# Identifying Zero Varience Values
+nzv <- nearZeroVar(trainData, saveMetrics = TRUE)
+removeColumns <- c(removeColumns,which(nzv$nzv == TRUE))
+
+# Identifying aggregate specific varialbles
+AggregateVals <- names(trainData[,colSums(is.na(trainData), na.rm = FALSE) > 0.95*nrow(trainData)])
+NAColumns <- grep(paste(AggregateVals,collapse="|"), colnames(trainData))
+removeColumns <- c(removeColumns,NAColumns)
+
+# Finalizing the variables
+removeColumns <- unique(removeColumns)
+removeColumns <- sort(removeColumns)
+
+#Preparing Tidy Data Sets
+trainDataTidy <- trainData[,-removeColumns]
+testDataTidy <- testData[,-removeColumns]
+```
+
+### Data Splitting: Preparing Cross-Validation Data Set
+
+As stated before, since the training data set is such a huge proportaion of the avaiable data, a data partition of  p=0.3 was used on the training data set to split it into a traning and a cross-validation set. This split would provide 5,889 observation for traning and 13733 for cross-validation. Hence, leaving us with about 30% of avaiable data for model training and 70% for model testing (more specifically, 69.92% for cross-validation and 0.010% for testing).
+
+The code below detials how the cross-validation data set was created.
+```{r CVSplit}
+set.seed(112)
+inTest <- createDataPartition(y=trainDataTidy$classe,
+                               p=0.3, list=FALSE)
+training <- trainDataTidy[inTest,] 
+crossVal <- trainDataTidy[-inTest,]
+```
+
+```{r classeCol, echo=FALSE}
+# Storing prediction value column number
+classeCol <- grep("classe", colnames(training))
+```
+
+# Exploratory Data Analysis
+
+Analysis was done on the cleaned training data set, to detect outliers and certain anomalies that might effect certain models. 
+
+A hierarchical cluster analysis was conducted to analyze the relationship between variables:
+```{r EDA, echo=FALSE, fig.cap= "hclust of traing data variables", fig.align='center'}
+trainCorr <- cor(training[,-classeCol])
+trainCorr <- round(trainCorr, digits=2)
+corrplot(trainCorr, method = "square", order="hclust", tl.cex=0.55, tl.srt=90)
+```
+
+*Conlusion*: The great a amount of coorelation among variables suggest that techniques such as PCA can be used to characterize the magnitude of the problem. PCA would also help reduce computation compleity and increase numerical stabilty.
+
+# Model Building
+
+To predict the *classe* variable, three classes of classification models were built with different pre-processing options using the **Caret** package. Given the nature of the prediciton varaiable, regression models were ruled out of this analysis.  
+
+## Model Training
+The table below detials the different types of models that were trained with the tranind data set.
+
+```{r, results='asis', echo=FALSE, fig.align='center'}
+ModelType <- c("Random Forest","Stochastic Gradient Boosting (gbm)", "Support Vector Machines (svmRadial)", "Random Forest", "Stochastic Gradient Boosting (gbm)")
+
+ModelClass <- c("Classification Models: Classification Tree","Classification Models: Rule Based", "Classification Models: Nonlinear", "Classification Models: Classification Tree", "Classification Models:Rule Based")
+
+PreProcessing <- c("None","None", "Normalization (center, scale)", "PCA", "PCA")
+
+ModelSelection <- data.frame(ModelType, ModelClass, PreProcessing)
+colnames( ModelSelection ) <- c( "Model Type", "Model Class", "Pre-Processing" ) 
+x1 <- xtable(ModelSelection)
+print(x1, type = "html")
+```
+  
+The subsequent code blocks contain code and sepcific parameters used when traning models. Furthermore, the doParallel library was utilized to take full advantage of multi-core machine architecture and improve run time. 
+
+** Model 1:Random Forest Model**
+```{r model_rf, cache=TRUE, warning=FALSE, message=FALSE}
+# Enabeling multi-core processing
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+# Random Forest with PCA
+set.seed(112)
+modelFit_rf <- train(classe ~ ., data=training, method="rf", prox=TRUE)
+
+```
+
+** Model 2:Stochastic Gradient Boosting (gbm)**
+```{r model_gbm, cache=TRUE, warning=FALSE,message=FALSE}
+# Enabeling multi-core processing
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+set.seed(112)
+modelFit_gbm <- train(classe ~ ., method="gbm", data=training, verbose=FALSE)
+```
+
+** Model 3:Support Vector Machines (svmRadial)**
+```{r model_svm, cache=TRUE, warning=FALSE,message=FALSE}
+# Enabeling multi-core processing
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+set.seed(112)
+modelFit_svm <- train(classe ~ ., data=training, method="svmRadial", preProc = c("center", "scale"), metric = "Accuracy")
+```
+
+** Model 4:Random Forest with PCA**
+```{r model_rf_PCA, cache=TRUE, warning=FALSE, message=FALSE}
+# Enabeling multi-core processing
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+# Random Forest with PCA
+set.seed(112)
+modelFit_rf_PCA <- train(classe ~ ., data=training, method="rf",preProcess = "pca", prox=TRUE)
+```
+
+** Model 5:Stochastic Gradient Boosting (gbm) with PCA**
+```{r model_gbm_PCA, cache=TRUE, warning=FALSE,message=FALSE}
+# Enabeling multi-core processing
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+set.seed(112)
+modelFit_gbm_PCA <- train(classe ~ ., method="gbm", preProcess = "pca", data=training, verbose=FALSE)
+```
+
+### Initial Model Evaluation
+The trained models were evaluated against the cross-validation data sets. The results below indicate the out-of-sample metrics for all 5 models trained above. Further detials on model evaluation on all five models can be found in *Appendix A: Initial Model Evaluation Detials*
+
+```{r}
+## Model 1:Random Forest Model**
+## Overall Statistics
+##                                        
+##                Accuracy : 0.982        
+##                  95% CI : (0.98, 0.984)
+##     No Information Rate : 0.287        
+##     P-Value [Acc > NIR] : <2e-16       
+##                                        
+##                   Kappa : 0.978        
+##  Mcnemar's Test P-Value : NA           
+
+
+## Model 2:Stochastic Gradient Boosting (gbm)**
+## Overall Statistics
+##                                         
+##                Accuracy : 0.953         
+##                  95% CI : (0.949, 0.956)
+##     No Information Rate : 0.29          
+##     P-Value [Acc > NIR] : <2e-16        
+##                                         
+##                   Kappa : 0.94          
+##  Mcnemar's Test P-Value : <2e-16        
+
+
+## Model 3:Support Vector Machines (svmRadial)**
+##                Accuracy : 0.885        
+##                  95% CI : (0.88, 0.891)
+##     No Information Rate : 0.302        
+##     P-Value [Acc > NIR] : <2e-16       
+##                                        
+##                   Kappa : 0.855        
+##  Mcnemar's Test P-Value : <2e-16       
+
+
+## Model 4:Random Forest with PCA**
+## Overall Statistics
+##                                         
+##                Accuracy : 0.939         
+##                  95% CI : (0.935, 0.943)
+##     No Information Rate : 0.289         
+##     P-Value [Acc > NIR] : <2e-16        
+
+
+## Model 5:Stochastic Gradient Boosting (gbm) with PCA**
+## Overall Statistics
+##                                         
+##                Accuracy : 0.8           
+##                  95% CI : (0.793, 0.806)
+##     No Information Rate : 0.293         
+##     P-Value [Acc > NIR] : <2e-16        
+##                                         
+##                   Kappa : 0.746         
+##  Mcnemar's Test P-Value : <2e-16   
+```
+
+## Final Model Tuning
+
+### Final Model Evaluation
+Given that *accuracy* was used as a metric to evaluate all the trained models, **Model 1:Random Forest Model** had the best performance. Hence, this model was further tuned to improve its accuracy.  
+
+```{r model_rf_CV, cache=TRUE, warning=FALSE,message=FALSE}
+# Enabeling multi-core processing
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+set.seed(112)
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 10,
+                           ## repeated ten times
+                           repeats = 10)
+modelFit_rf_CV <- train(classe ~ ., data=training, method="rf", trControl = fitControl, prox=TRUE)
+```
+
+### Final Model Evaluation
+```{r}
+## Overall Statistics
+##                                        
+##                Accuracy : 0.982        
+##                  95% CI : (0.98, 0.984)
+##     No Information Rate : 0.287        
+##     P-Value [Acc > NIR] : <2e-16       
+##                                        
+##                   Kappa : 0.978        
+##  Mcnemar's Test P-Value : NA           
+```
+
+```{r, fig.align='center', fig.height= 9, echo=FALSE}
+#varImp_rf <- varImp(modelFit_rf_CV)
+print(plot(varImp(modelFit_rf_CV, scale = TRUE)))
+```
+
+final model specifications:
+```{r}
+print(modelFit_rf_CV$modelInfo)
+```
+
+
+
+## Predicting the Results
+### Predicting the Test Set
+
+```{r predictTest rf, cache=TRUE, echo=FALSE, results='asis'}
+predictedClass <- predict(modelFit_rf_CV, newdata=testDataTidy, type = "raw")
+predictedProb <- predict(modelFit_rf_CV, newdata=testDataTidy, type = "prob")
+finalPredict <- cbind(predictedProb, predictedClass)
+finalPredict <- data.frame(finalPredict)
+colnames( finalPredict ) <- c( "Prob(A)", "Prob(B)", "Prob(C)", "Prob(D)", "Prob(E)", "Final Prediction") 
+xPredict <- xtable(finalPredict)
+print(xPredict, type = "html")
+```
+
+
+
+
+```{r savingModels, echo=FALSE, cache=TRUE}
+#save(modelFit_nb,file = "./models/modelFit_nb.RData")
+#save(modelFit_logreg,file = "./models/modelFit_logreg.RData")
+
+save(modelFit_rf,file = "./models/modelFit_rf.RData")
+save(modelFit_gbm,file = "./models/modelFit_gbm.RData")
+save(modelFit_svm,file = "./models/modelFit_svm.RData")
+save(modelFit_rf_PCA,file = "./models/modelFit_rf_PCA.RData")
+save(modelFit_gbm_PCA,file = "./models/modelFit_gbm_PCA.RData")
+save(modelFit_rf_CV,file = "./models/modelFit_rf_CV.RData")
+```
+
+
+## Appendix
+
+### Appendix A: Initial Model Evaluation Detials
+
+```{r predict rf, cache=TRUE}
+confusionMatrix(crossVal$classe, predict(modelFit_rf, crossVal))
+```
+
+```{r predict gbm, cache=TRUE}
+confusionMatrix(crossVal$classe, predict(modelFit_gbm, crossVal))
+```
+
+```{r predict svm, cache=TRUE}
+confusionMatrix(crossVal$classe, predict(modelFit_svm, crossVal))
+```
+
+```{r predict rf_PCA, cache=TRUE}
+confusionMatrix(crossVal$classe, predict(modelFit_rf_PCA, crossVal))
+```
+
+```{r predict gbm_PCA, cache=TRUE}
+confusionMatrix(crossVal$classe, predict(modelFit_gbm_PCA, crossVal))
+```
+
+### Appendix B: Final Model Evaluation Detials
+
+```{r predict rf_CV, cache=TRUE}
+confusionMatrix(crossVal$classe, predict(modelFit_rf_CV, crossVal))
+```
