@@ -74,7 +74,7 @@ Predicting Exercises Quality from Accelerometer Data with Machine Learning
 <div id="executive-summary" class="section level2">
 <h2>Executive Summary</h2>
 <p>The report details the building of machine learning models which predicts the <em>classe</em> (quality of exercise) variable from data provided by accelerometer. To do this, 5 classification models were initially selected and the best, in terms of accuracy, was fine tuned to improve the overall prediction capability. The goal was to predict the <em>classe</em> variable for 5 exercise performed by 6 different participants.</p>
-The performance specifications of the final model are outlined below: <!-- html table generated in R 3.1.1 by xtable 1.7-3 package --> <!-- Sun Jul 27 19:19:37 2014 -->
+The performance specifications of the final model are outlined below: <!-- html table generated in R 3.1.1 by xtable 1.7-3 package --> <!-- Sun Jul 27 19:26:00 2014 -->
 <TABLE border="1">
 <TR> <TH> 
 Model Name
@@ -186,7 +186,7 @@ crossVal &lt;-<span class="st"> </span>trainDataTidy[-inTest,]</code></pre>
 <h2>5.1 - Model Training</h2>
 <p>The table below details the different types of models that were trained with the training data set.</p>
 <!-- html table generated in R 3.1.1 by xtable 1.7-3 package -->
-<!-- Sun Jul 27 19:19:41 2014 -->
+<!-- Sun Jul 27 19:26:05 2014 -->
 <TABLE border="1">
 <TR> <TH> 
 Model Type
@@ -274,7 +274,7 @@ modelFit_gbm_PCA &lt;-<span class="st"> </span><span class="kw">train</span>(cla
 <h3>5.2 - Initial Model Evaluation</h3>
 <p>The trained models were evaluated against the cross-validation data sets. The results below indicate the out-of-sample metrics for all 5 models trained above. Further details on model evaluation on all five models can be found in <em>Appendix A: Initial Model Evaluation Detials</em></p>
 <!-- html table generated in R 3.1.1 by xtable 1.7-3 package -->
-<!-- Sun Jul 27 19:19:41 2014 -->
+<!-- Sun Jul 27 19:26:05 2014 -->
 <TABLE border="1">
 <TR> <TH> 
 Model Name
@@ -392,7 +392,7 @@ modelFit_rf_CV &lt;-<span class="st"> </span><span class="kw">train</span>(class
 <div id="final-model-evaluation" class="section level3">
 <h3>6.2 - Final Model Evaluation</h3>
 <!-- html table generated in R 3.1.1 by xtable 1.7-3 package -->
-<!-- Sun Jul 27 19:19:41 2014 -->
+<!-- Sun Jul 27 19:26:05 2014 -->
 <TABLE border="1">
 <TR> <TH> 
 Model Name
