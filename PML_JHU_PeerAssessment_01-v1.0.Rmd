@@ -5,7 +5,7 @@ output:
     highlight: tango
 ---
 
-<center> <h1>Predicting Exercises Quality from Accelerometer Data with Machine Learning</h1> </center>
+<center> <h1>Predicting Exercise Quality from Accelerometer Data with Machine Learning</h1> </center>
 Author: Jovan Sardinha  
 Email: jovan.sardinha@gmail.com  
 Date: Friday, July 24, 2014  
