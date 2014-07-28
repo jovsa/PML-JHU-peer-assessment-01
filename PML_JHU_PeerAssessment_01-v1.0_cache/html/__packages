@@ -16,5 +16,6 @@ MASS
 plyr
 randomForest
 RCurl
+stargazer
 survival
 xtable
